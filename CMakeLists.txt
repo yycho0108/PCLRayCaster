@@ -22,10 +22,24 @@ add_executable(main ${SRC_FILES} ${HDR_FILES})
 target_include_directories(main PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/" ${PCL_INCLUDE_DIRS} ${Eigen_INCLUDE_DIRS})
 target_link_libraries(main ${PCL_LIBRARIES} Eigen3::Eigen Boost::system fmt)
 
+# Dummy target for always building...
+add_custom_target(copy_python_scripts ALL
+    DEPENDS
+        copy_python_scripts_rsync
+    )
+
+# Dummy target for always building...
+add_custom_command(
+    OUTPUT always_rebuild
+    COMMAND cmake -E echo
+    )
 
 # Copy files in scripts/ to binary directory as well.
-add_custom_command(TARGET main POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-    ${CMAKE_CURRENT_SOURCE_DIR}/scripts/
-    $<TARGET_FILE_DIR:main>/scripts
+add_custom_command(
+    OUTPUT copy_python_scripts_rsync
+    COMMAND rsync
+    ARGS -ravP
+    "${CMAKE_CURRENT_SOURCE_DIR}/scripts/"
+    "$<TARGET_FILE_DIR:main>/scripts/"
+    DEPENDS always_rebuild
     )

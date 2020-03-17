@@ -1,18 +1,19 @@
+import time
+import pyqtgraph.opengl as gl
+import pyqtgraph as pg
+
+import sys
+sys.path.append('/home/jamiecho/Repos/Ravel/PhoneBot/pyphonebot/')
+
+from phonebot.vis.viewer.proxy_commands import AddLineStripCommand, AddGridCommand, AddLinesCommand
+from phonebot.vis.viewer.proxy_command import ProxyCommand
+from phonebot.vis.viewer import ProxyViewer
+
 import glob
 import numpy as np
 from matplotlib import pyplot as plt
 import open3d as o3d
 
-import sys
-sys.path.append('/home/jamiecho/Repos/Ravel/PhoneBot/pyphonebot/')
-from phonebot.vis.viewer import ProxyViewer
-from phonebot.vis.viewer.proxy_command import ProxyCommand
-from phonebot.vis.viewer.proxy_commands import AddLineStripCommand, AddGridCommand
-
-import pyqtgraph as pg
-import pyqtgraph.opengl as gl
-
-import time
 
 
 class AddPointsCommand(ProxyCommand):
@@ -32,6 +33,7 @@ def main():
     data_queue, event_queue, command_queue = ProxyViewer.create()
     command_queue.put(AddPointsCommand(name='points'))
     command_queue.put(AddLineStripCommand(name='view'))
+    command_queue.put(AddLinesCommand(name='ray'))
     command_queue.put(AddGridCommand(name='grid'))
 
     pose_files = sorted(glob.glob('/tmp/pose_*.txt'))
@@ -41,7 +43,6 @@ def main():
     for pose_file, cloud_file in zip(pose_files, cloud_files):
         view = np.loadtxt(pose_file)
         cloud = np.asarray(o3d.io.read_point_cloud(cloud_file).points)
-        # cloud = o3d.io.read_point_cloud(cloud_file)
         poses.append(view)
         clouds.append(cloud)
     poses = np.asarray(poses)
@@ -49,13 +50,15 @@ def main():
     index = 0
     while True:
         imin = max(0, index-16)
-        imax = min(index, len(poses))
+        imax = min(index+1, len(poses))
         trajectory = poses[imin:imax][..., :3, 3]
-        # print(index, imin, imax)
-        # print('pose', poses[index])
-        # print('traj', trajectory[-1])
-        data_queue.put(
-            dict(points=dict(pos=clouds[index]), view=dict(pos=trajectory)))
+        ray_o = np.broadcast_to(poses[index][...,:3,3], clouds[index].shape)
+        ray = np.stack([ray_o, clouds[index]], axis=1)  # Nx2x3
+        data_queue.put(dict(
+            points=dict(pos=clouds[index]),
+            view=dict(pos=trajectory),
+            ray=dict(pos=ray)
+        ))
         index = (index + 1) % len(poses)
         time.sleep(0.001)
 

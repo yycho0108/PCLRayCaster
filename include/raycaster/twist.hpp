@@ -48,14 +48,20 @@ Eigen::Transform<Scalar, 3, Eigen::Isometry> Exp(const Twist<Scalar>& T) {
 
   const float t2 = w.dot(w);
   const float t = std::sqrt(t2);
-  const Eigen::AngleAxis<Scalar> rotation(
-      t, t <= std::numeric_limits<float>::epsilon() ? w : w / t);
+  const bool is_small_angle = (t <= std::numeric_limits<float>::epsilon());
+  const Eigen::AngleAxis<Scalar> rotation(t, is_small_angle ? w : w / t);
+
+  if (is_small_angle) {
+    const Eigen::Matrix<Scalar, 3, 1> position = v + 0.5 * w.cross(v);
+    return Eigen::Translation<Scalar, 3>{position} * rotation;
+  }
+
   const float ct = std::cos(t);
   const float st = std::sin(t);
-
   const float awxv = (1.0 - ct) / t2;
-  const float av = st / t;
+  const float av = (st / t);
   const float aw = (1.0 - av) / t2;
+
   const Eigen::Matrix<Scalar, 3, 1> position =
       av * v + aw * w.dot(v) * w + awxv * w.cross(v);
 
@@ -77,10 +83,17 @@ Twist<Scalar> Log(const Eigen::Transform<Scalar, 3, Eigen::Isometry>& T) {
   // Set intermediate values.
   const float t = axa.angle();
   const float t2 = t * t;
+  const bool is_small_angle = (t <= std::numeric_limits<float>::epsilon());
+
+  if (is_small_angle) {
+    const Eigen::Matrix<Scalar, 3, 1>& v = p + 0.5 * p.cross(w);
+    return Twist<Scalar>{w, v};
+  }
+
   const float st = std::sin(t);
   const float ct = std::cos(t);
-  const float alpha = t * st / (2.0 * (1.0 - ct));
-  const float beta = 1.0 / t2 - st / (2.0 * t * (1.0 - ct));
+  const float alpha = (t * st / (2.0 * (1.0 - ct)));
+  const float beta = (1.0 / t2 - st / (2.0 * t * (1.0 - ct)));
   const Eigen::Matrix<Scalar, 3, 1>& v =
       (alpha * p - 0.5 * w.cross(p) + beta * w.dot(p) * w);
   return Twist<Scalar>{w, v};

@@ -19,6 +19,8 @@ struct FrameManager {
   Twist<float> velocity_;
 
   Eigen::Isometry3f GetFrameAtStamp(const float stamp) {
+    // std::cout << velocity_.Rotation().transpose() << "|" <<
+    // velocity_.Translation().transpose() << std::endl;
     return initial_pose_ * Exp(velocity_ * stamp);
   }
 };
@@ -47,27 +49,38 @@ void TestExpLogStuff() {
   std::cout << T1.matrix() << std::endl;
 }
 
-int main() {
+int main(const int argc, const char* argv[]) {
+  TestExpLogStuff();
+  std::string ply_file = "/home/jamiecho/Downloads/car-body-ply/Car body.ply";
+  std::cout << argc << std::endl;
+  if (argc >= 2) {
+    std::cout << argv[1] << std::endl;
+    ply_file = argv[1];
+  }
+  // Load source mesh file.
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
-  pcl::io::loadPLYFile("/home/jamiecho/Downloads/car-body-ply/Car body.ply",
-                       *cloud);
+  pcl::io::loadPLYFile(ply_file, *cloud);
   // Scale from mm -> m
-  cloud->getMatrixXfMap().block(0, 0, 3, cloud->size()) *= 0.001;
+  cloud->getMatrixXfMap().block(0, 0, 3, cloud->size()) *= 0.001f;
+  // cloud->getMatrixXfMap().block(0, 0, 3, cloud->size()) *= 20.0;
+
+  std::cout << cloud->getMatrixXfMap().rowwise().maxCoeff() << std::endl;
+  std::cout << cloud->getMatrixXfMap().rowwise().minCoeff() << std::endl;
 
   RayCaster ray_caster{cloud};
 
   // Self
   FrameManager ego_vehicle{
       GetRigidTransform(
-          Eigen::Quaternionf{Eigen::AngleAxisf(0.0, Eigen::Vector3f::UnitZ())},
+          Eigen::Quaternionf{Eigen::AngleAxisf(0.0f, Eigen::Vector3f::UnitZ())},
           Eigen::Vector3f{-30.0, 3.0, 2.0}),
       Log(Eigen::Translation3f{10.0f, 0.0, 0.0} *
-          Eigen::AngleAxisf(0.2, Eigen::Vector3f::UnitZ()))};
+          Eigen::AngleAxisf(0.4f, Eigen::Vector3f::UnitZ()))};
 
   // Obstacle
   FrameManager obs_vehicle{
       GetRigidTransform(
-          Eigen::Quaternionf{Eigen::AngleAxisf(0.2, Eigen::Vector3f::UnitZ())},
+          Eigen::Quaternionf{Eigen::AngleAxisf(0.2f, Eigen::Vector3f::UnitZ())},
           Eigen::Vector3f{0.0, 0.0, 2.0}),
       Log(Eigen::Translation3f{4.0f, 0.0, 0.0} *
           Eigen::AngleAxisf(-0.5f, Eigen::Vector3f::UnitZ()))};
